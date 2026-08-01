@@ -1,0 +1,41 @@
+{
+  "_comment_": "Bubblewrap TWA config for Cedarwings SAS Operations. Edit host + startUrl + signingKey.path before `bubblewrap build`.",
+  "packageId": "com.cedarwings.ops",
+  "host": "REPLACE_WITH_YOUR_DOMAIN.com",
+  "name": "Cedarwings SAS Operations",
+  "launcherName": "Cedarwings",
+  "display": "standalone",
+  "themeColor": "#3b5fe2",
+  "navigationColor": "#3b5fe2",
+  "navigationColorDark": "#1e293b",
+  "navigationDividerColor": "#3b5fe2",
+  "navigationDividerColorDark": "#1e293b",
+  "backgroundColor": "#f0f4f8",
+  "enableNotifications": false,
+  "startUrl": "/index.html",
+  "iconUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/icons/icon-512.png",
+  "maskableIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/icons/icon-maskable-512.png",
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    { "name": "Clocking",   "shortName": "Clock",      "url": "/clocking.html",   "chosenIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/icons/icon-192.png" },
+    { "name": "Production", "shortName": "Production", "url": "/production.html", "chosenIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/icons/icon-192.png" },
+    { "name": "Inventory",  "shortName": "Inventory",  "url": "/inventory.html",  "chosenIconUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/icons/icon-192.png" }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://REPLACE_WITH_YOUR_DOMAIN.com/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": { "enabled": false },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "orientation": "any",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  }
+}
