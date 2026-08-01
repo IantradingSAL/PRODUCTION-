@@ -1,0 +1,11 @@
+[
+  {
+    "_comment_": "REPLACE the sha256_cert_fingerprints value with the one printed by Bubblewrap/PWABuilder after your first build. Then this file MUST be served at https://YOUR-DOMAIN/.well-known/assetlinks.json with Content-Type: application/json. Without it, the TWA opens with a Chrome URL bar visible.",
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.cedarwings.ops",
+      "sha256_cert_fingerprints": ["REPLACE:WITH:SHA256:FROM:BUBBLEWRAP:BUILD:OUTPUT"]
+    }
+  }
+]
