@@ -254,6 +254,16 @@ lbl{display:block;font-size:11px;font-weight:700;color:var(--mu);text-transform:
       </select>
     </div>
 
+    <!-- SENSITIVE DATA -->
+    <div class="fgrp">
+      <div class="sec-lbl">Sensitive Data</div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;text-transform:none;letter-spacing:0;font-size:13px;font-weight:600;color:var(--txt)">
+        <input type="checkbox" id="fCosts" checked style="width:16px;height:16px;accent-color:var(--blue);cursor:pointer"/>
+        💰 Can view supplier costs
+      </label>
+      <div style="font-size:11px;color:var(--mu);margin-top:6px">Uncheck to hide every supplier cost (e.g. the cost of an outsourced aligner) from this user, whatever their role.</div>
+    </div>
+
     <div class="mo-actions">
       <button class="btn bgh" id="cancelBtn">Cancel</button>
       <button class="btn br" id="delBtn" style="display:none;margin-right:auto" onclick="deleteEmpModal()">🗑 Delete</button>
@@ -334,6 +344,7 @@ function renderTable(){
         <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
           <span class="role-pill" style="color:${pc};border-color:${pc}40;background:${pc}15">${pIcon} ${pLabel}</span>
           ${extraHtml}
+          ${e.can_view_supplier_costs===false?'<span class="role-pill" style="color:#d97706;border-color:#d9770640;background:#d9770615" title="Supplier costs hidden for this user">🔒 No costs</span>':''}
         </div>
       </td>
       <td><span style="font-family:var(--mono);font-size:12px;color:var(--mu)">${e.pin?'••••':'—'}</span></td>
@@ -453,6 +464,7 @@ document.addEventListener('click',e=>{
 
 /* ─── OPEN/CLOSE MODAL ─── */
 function resetModal(){
+  document.getElementById('fCosts').checked=true
   document.getElementById('fName').value=''
   document.getElementById('fPin').value=''
   document.getElementById('fStep').value=''
@@ -481,6 +493,7 @@ window.openEdit=(id)=>{
   document.getElementById('fName').value=e.name
   document.getElementById('fPin').value=e.pin||''
   document.getElementById('fStep').value=e.workflow_step||''
+  document.getElementById('fCosts').checked=e.can_view_supplier_costs!==false
   document.getElementById('moTitle').textContent='Edit Employee: '+e.name
   document.getElementById('moSub').textContent='Update roles, access, or PIN.'
   document.getElementById('delBtn').style.display='inline-flex'
@@ -524,15 +537,18 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   const payload={name,role:sysRole,pin:pin||null,is_active:true,
     page_access:finalPages,custom_role:selPrimary.name,
     extra_roles:JSON.stringify(extraNames),
-    workflow_step:step||null}
+    workflow_step:step||null,
+    can_view_supplier_costs:document.getElementById('fCosts').checked}
   try{
-    if(id){
-      const{error}=await sb.from('employees').update(payload).eq('id',id)
-      if(error)throw error
-    }else{
-      const{error}=await sb.from('employees').insert([payload])
-      if(error)throw error
+    const run=p=>id?sb.from('employees').update(p).eq('id',id):sb.from('employees').insert([p])
+    let{error}=await run(payload)
+    if(error&&(error.message||'').includes('can_view_supplier_costs')){
+      // Column not deployed yet — see supplier_cost_visibility.sql
+      const{can_view_supplier_costs,...stripped}=payload
+      ;({error}=await run(stripped))
+      if(!error)ntf('Saved, but cost visibility was not stored — run supplier_cost_visibility.sql','err')
     }
+    if(error)throw error
     closeModal();ntf(id?'Employee updated':'Employee added');load()
   }catch(err){document.getElementById('moErr').textContent=err.message}
 })

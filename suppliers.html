@@ -53,6 +53,7 @@ label{display:block;font-size:11px;font-weight:700;color:var(--mu);text-transfor
     <div>
       <h1>🏭 Suppliers</h1>
       <div style="font-size:13px;color:var(--mu);margin-top:2px">Manage material suppliers — linked to inventory items</div>
+      <div id="costHiddenNote" style="display:none;font-size:12px;color:var(--amber);margin-top:6px">🔒 Supplier costs are hidden for your account</div>
     </div>
     <button class="btn" onclick="openAdd()">+ Add Supplier</button>
   </div>
@@ -78,6 +79,13 @@ label{display:block;font-size:11px;font-weight:700;color:var(--mu);text-transfor
       </div>
       <div><label>Email</label><input class="fi" id="sEmail" type="email" placeholder="contact@supplier.com"/></div>
       <div><label>Address</label><input class="fi" id="sAddress" placeholder="Street, City"/></div>
+      <div id="costFields">
+        <div class="fg2">
+          <div><label>Cost per Unit</label><input class="fi" id="sCost" type="number" step="0.01" min="0" placeholder="e.g. 12.50"/></div>
+          <div><label>Currency</label><input class="fi" id="sCurrency" placeholder="€" maxlength="4"/></div>
+        </div>
+        <div style="margin-top:12px"><label>Cost Note</label><input class="fi" id="sCostNote" placeholder="e.g. per outsourced aligner"/></div>
+      </div>
       <div><label>Notes</label><textarea class="fi" id="sNotes" rows="2" placeholder="Any notes…" style="resize:vertical"></textarea></div>
 
       <div id="invLinkSection" style="display:none">
@@ -100,12 +108,32 @@ const sb=createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey)
 
 let all=[], editId=null
 
+// Per-user permission (employees.can_view_supplier_costs). Anyone who is not
+// explicitly restricted keeps seeing costs.
+const canSeeCosts=typeof CW_ACCESS!=='undefined'?CW_ACCESS.canViewSupplierCosts():true
+const COST_FIELDS=['unit_cost','currency','cost_note']
+
+function applyCostPermission(){
+  document.getElementById('costFields').style.display=canSeeCosts?'block':'none'
+  document.getElementById('costHiddenNote').style.display=canSeeCosts?'none':'block'
+}
+
+function fmtCost(s){
+  if(s.unit_cost===null||s.unit_cost===undefined||s.unit_cost==='')return ''
+  const cur=s.currency||'€'
+  return `${cur}${Number(s.unit_cost).toFixed(2)}${s.cost_note?' — '+s.cost_note:''}`
+}
+
 async function load(){
   const[sr,ir]=await Promise.all([
     sb.from('suppliers').select('*').order('name'),
     sb.from('inventory_items').select('id,name,preferred_supplier_id')
   ])
-  all=sr.data||[]
+  // Restricted users never hold a cost in memory, so nothing can surface in the UI
+  all=(sr.data||[]).map(s=>{
+    if(canSeeCosts)return s
+    const clean={...s};COST_FIELDS.forEach(f=>delete clean[f]);return clean
+  })
   const items=ir.data||[]
   renderGrid(all,items)
 }
@@ -122,6 +150,7 @@ function renderGrid(suppliers,items){
       ${s.contact_name?`<div class="card-row">👤 <span>${s.contact_name}</span></div>`:''}
       ${s.email?`<div class="card-row">✉️ <span>${s.email}</span></div>`:''}
       ${s.phone?`<div class="card-row">📞 <span>${s.phone}</span></div>`:''}
+      ${canSeeCosts&&fmtCost(s)?`<div class="card-row">💰 <span>${fmtCost(s)}</span></div>`:''}
       ${linked.length?`<div class="card-row" style="margin-top:8px">📦 <span>${linked.length} inventory item${linked.length>1?'s':''} linked</span></div>`:''}
       <div class="card-actions">
         <button class="btn btn-sm btn-ghost" onclick="window.editSupplier('${s.id}')">✏️ Edit</button>
@@ -134,7 +163,8 @@ function renderGrid(suppliers,items){
 window.openAdd=()=>{
   editId=null
   document.getElementById('moTitle').textContent='Add Supplier'
-  ;['sName','sCountry','sContact','sPhone','sEmail','sAddress','sNotes'].forEach(id=>document.getElementById(id).value='')
+  ;['sName','sCountry','sContact','sPhone','sEmail','sAddress','sNotes','sCost','sCostNote'].forEach(id=>document.getElementById(id).value='')
+  document.getElementById('sCurrency').value='€'
   document.getElementById('invLinkSection').style.display='none'
   document.getElementById('mSupplier').classList.add('on')
 }
@@ -150,6 +180,11 @@ window.editSupplier=async(id)=>{
   document.getElementById('sEmail').value=s.email||''
   document.getElementById('sAddress').value=s.address||''
   document.getElementById('sNotes').value=s.notes||''
+  if(canSeeCosts){
+    document.getElementById('sCost').value=(s.unit_cost??'')
+    document.getElementById('sCurrency').value=s.currency||'€'
+    document.getElementById('sCostNote').value=s.cost_note||''
+  }
   // Load linked inventory items
   const{data:items}=await sb.from('inventory_items').select('id,name').eq('preferred_supplier_id',id)
   const sec=document.getElementById('invLinkSection')
@@ -175,12 +210,30 @@ window.saveSupplier=async()=>{
     notes:document.getElementById('sNotes').value.trim()||null,
     is_active:true
   }
-  if(editId){
-    await sb.from('suppliers').update(payload).eq('id',editId)
-  } else {
-    await sb.from('suppliers').insert([payload])
+  // A user who cannot see costs never writes them, so editing a supplier
+  // does not wipe the cost another user entered.
+  if(canSeeCosts){
+    const c=document.getElementById('sCost').value.trim()
+    payload.unit_cost=c===''?null:Number(c)
+    payload.currency=document.getElementById('sCurrency').value.trim()||'€'
+    payload.cost_note=document.getElementById('sCostNote').value.trim()||null
   }
+  const error=await write(payload)
+  if(error){alert('Could not save supplier: '+error.message);return}
   closeModal();load()
+}
+
+// Falls back to a cost-free write when the cost columns are not deployed yet
+// (see supplier_cost_visibility.sql).
+async function write(payload){
+  const run=p=>editId?sb.from('suppliers').update(p).eq('id',editId):sb.from('suppliers').insert([p])
+  const{error}=await run(payload)
+  if(!error||!COST_FIELDS.some(f=>(error.message||'').includes(f)))return error
+  const stripped={...payload}
+  COST_FIELDS.forEach(f=>delete stripped[f])
+  const{error:e2}=await run(stripped)
+  if(!e2)alert('Supplier saved, but the cost columns are missing — run supplier_cost_visibility.sql on the database.')
+  return e2
 }
 
 window.deleteSupplier=async(id)=>{
@@ -194,6 +247,7 @@ window.deleteSupplier=async(id)=>{
 window.closeModal=()=>document.getElementById('mSupplier').classList.remove('on')
 document.getElementById('mSupplier').addEventListener('click',e=>{if(e.target===document.getElementById('mSupplier'))closeModal()})
 
+applyCostPermission()
 load()
 </script>
 </body>

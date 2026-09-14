@@ -102,6 +102,7 @@ const CW_ACCESS = {
         { heading: 'Edit button', text: 'Update employee details, change password, or deactivate an account.' },
         { heading: 'Access Control', text: 'For employees, you can restrict which pages they can access. Leave the access list empty to allow all pages.' },
         { heading: 'Active toggle', text: 'Deactivating an employee prevents them from logging in without deleting their records.' },
+        { heading: '💰 Can view supplier costs', text: 'Uncheck this in the employee form to hide every supplier cost from that person, including managers. Restricted users see the supplier list without any price, and their edits never overwrite a cost.' },
       ]
     },
     employee_profile: {
@@ -196,6 +197,7 @@ const CW_ACCESS = {
         { heading: '+ Add Supplier button', text: 'Register a new supplier with contact details, lead time, and the materials they supply.' },
         { heading: 'Approved supplier list', text: 'ISO 13485 requires purchasing only from qualified suppliers. The approved list here serves as evidence of supplier qualification.' },
         { heading: 'Linking to inventory', text: 'When adding stock lots, select the supplier from this list to maintain a complete audit trail.' },
+        { heading: 'Supplier costs', text: 'Each supplier can carry a cost per unit (for example the cost of an outsourced aligner). Costs are only shown to users allowed to see them — a manager can revoke that on the Employees page, per user.' },
       ]
     },
     bloom_import: {
@@ -262,6 +264,10 @@ const CW_ACCESS = {
   // ── Helpers ────────────────────────────────────────────────────
   getName() { return sessionStorage.getItem('cw_name') || 'User'; },
   getRole()  { return sessionStorage.getItem('cw_role') || 'employee'; },
+
+  // Supplier costs are visible unless the employee record explicitly denies it
+  // (employees.can_view_supplier_costs = false), so existing users are unaffected.
+  canViewSupplierCosts() { return sessionStorage.getItem('cw_supplier_costs') !== '0'; },
 
   // ── Guard ──────────────────────────────────────────────────────
   guard(pageKey) {

@@ -92,7 +92,7 @@ import{createClient}from"https://esm.sh/@supabase/supabase-js@2"
 import{SUPABASE_CONFIG}from"./config.js"
 const sb=createClient(SUPABASE_CONFIG.url,SUPABASE_CONFIG.anonKey)
 
-const EK="cw_current_emp",RK="cw_role",PK="cw_pages",NK="cw_name",CRK="cw_custom_role"
+const EK="cw_current_emp",RK="cw_role",PK="cw_pages",NK="cw_name",CRK="cw_custom_role",SCK="cw_supplier_costs"
 
 // Page routing map — which page each access key maps to
 const PAGE_MAP={
@@ -180,11 +180,20 @@ window.doLogin=async()=>{
     sessionStorage.setItem(PK,JSON.stringify(pageAccess))
     sessionStorage.setItem(NK,user.name)
     sessionStorage.setItem(CRK,customRole)
+    sessionStorage.setItem(SCK,(await mayViewSupplierCosts(user.id))?"1":"0")
     localStorage.setItem(EK,user.name)
     // Navigate to appropriate home page
     const homePage=getHomePage(pageAccess,customRole)
     window.location.href=homePage
   }catch(err){showErr("Error: "+err.message);btn.disabled=false;btn.textContent="Sign In →"}
+}
+
+// Supplier costs are allowed unless the employee record says otherwise.
+// The column is optional — if it is not deployed yet, everyone keeps seeing costs.
+async function mayViewSupplierCosts(id){
+  const{data,error}=await sb.from("employees").select("can_view_supplier_costs").eq("id",id).limit(1)
+  if(error||!data?.length)return true
+  return data[0].can_view_supplier_costs!==false
 }
 
 function showErr(msg){const b=document.getElementById("errBox");b.textContent=msg;b.classList.add("on")}
